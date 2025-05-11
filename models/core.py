@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, BigI
 from sqlalchemy.orm import relationship, declarative_base
 from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import ENUM
-from .enums import UserStatusEnum
+from .enums import UserStatusEnum, ForgotPasswordRequestEnum
 
 Base = declarative_base()
 
@@ -60,4 +60,14 @@ class TeamMember(Base):
     joined_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     __table_args__ = (
         UniqueConstraint('team_id', 'user_id', name='uq_team_user'),
-    ) 
+    )
+
+class ForgotPasswordRequest(Base):
+    __tablename__ = 'forgot_password_requests'
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    new_password = Column(String(255), nullable=False)
+    status = Column(ENUM(ForgotPasswordRequestEnum, name="forgot_password_request_enum"), nullable=False, server_default='pending_approval')
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    user = relationship('User') 

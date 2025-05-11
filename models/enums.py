@@ -27,4 +27,9 @@ class TaskStatusEnum(str, enum.Enum):
     completed = 'completed'
     cancelled = 'cancelled'
     todo = 'todo'
-    in_progress = 'in_progress' 
+    in_progress = 'in_progress'
+
+class ForgotPasswordRequestEnum(str, enum.Enum):
+    pending_approval = 'pending_approval'
+    approved = 'approved'
+    denied = 'denied' 

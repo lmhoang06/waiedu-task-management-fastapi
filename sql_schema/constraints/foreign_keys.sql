@@ -62,4 +62,9 @@ ON UPDATE CASCADE ON DELETE CASCADE;
 
 ALTER TABLE "task_assignments"
 ADD FOREIGN KEY("user_id") REFERENCES "users"("id")
+ON UPDATE CASCADE ON DELETE CASCADE;
+
+-- Forgot password requests constraints
+ALTER TABLE "forgot_password_requests"
+ADD FOREIGN KEY("user_id") REFERENCES "users"("id")
 ON UPDATE CASCADE ON DELETE CASCADE; 

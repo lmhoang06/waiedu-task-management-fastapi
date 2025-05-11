@@ -9,8 +9,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Function to prevent manual updates to joined_at timestamp
-CREATE OR REPLACE FUNCTION prevent_team_member_joined_at_update()
+-- Function to prevent manual updates to joined_at timestamp (general purpose)
+CREATE OR REPLACE FUNCTION prevent_joined_at_manual_update()
 RETURNS TRIGGER AS $$
 BEGIN
     IF OLD.joined_at IS DISTINCT FROM NEW.joined_at THEN
@@ -74,6 +74,18 @@ BEGIN
     IF OLD.assigned_at IS DISTINCT FROM NEW.assigned_at THEN
         RAISE WARNING 'Attempted to set custom assigned_at timestamp. Resetting to CURRENT_TIMESTAMP.';
     END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to handle updated_at during INSERT with warning
+CREATE OR REPLACE FUNCTION handle_updated_at_insert()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.updated_at IS NOT NULL THEN
+        RAISE WARNING 'Attempted to set custom updated_at timestamp. Resetting to CURRENT_TIMESTAMP.';
+    END IF;
+    NEW.updated_at = CURRENT_TIMESTAMP;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql; 

@@ -58,4 +58,15 @@ CREATE TABLE "team_members" (
     "joined_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY("id"),
     UNIQUE("team_id", "user_id")
+);
+
+-- Forgot password requests table stores password reset requests for users
+CREATE TABLE "forgot_password_requests" (
+    "id" SERIAL NOT NULL UNIQUE,                        -- Unique request ID
+    "user_id" INTEGER NOT NULL,                         -- User requesting password reset
+    "new_password" VARCHAR(255) NOT NULL,                -- New password to be set (should be hashed)
+    "status" FORGOT_PASSWORD_REQUEST_ENUM NOT NULL DEFAULT 'pending_approval', -- Status of the request
+    "created_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, -- Request creation time
+    "updated_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, -- Last update time
+    PRIMARY KEY("id")
 ); 

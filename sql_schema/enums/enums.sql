@@ -35,4 +35,11 @@ CREATE TYPE "task_status_enum" AS ENUM (
     'cancelled',        -- Task has been cancelled
     'todo',             -- Task is in todo state
     'in_progress'       -- Task is currently being worked on
+);
+
+-- Forgot password request status enum defines possible states for password reset requests
+CREATE TYPE "forgot_password_request_enum" AS ENUM (
+    'pending_approval', -- Request is pending admin approval
+    'approved',         -- Request has been approved
+    'denied'            -- Request has been denied
 ); 

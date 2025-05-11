@@ -60,8 +60,7 @@
 ## 10. Auth & Account
 - [x] POST   /auth/login         - User login
 - [x] POST   /auth/logout        - User logout
-- [ ] POST   /auth/forgot-password - Forgot password
-- [ ] POST   /auth/reset-password  - Reset password
+- [x] POST   /auth/forgot-password - Forgot password
 
 ## 11. Roles & Permissions (extra)
 - [x] POST   /roles/{id}/assign      - Assign role to user
@@ -86,6 +85,7 @@
 - **user_tokens**: id, user_id, token, created_at, expires_at
 - **teams**: id, name, description, leader_id, created_at, updated_at
 - **team_members**: id, team_id, user_id, role, joined_at
+- **forgot_password_requests**: id, user_id, new_password, status, created_at, updated_at
 
 ## Project Management
 - **projects**: id, name, description, status, start_date, end_date, manager_id, budget, priority, created_at, updated_at

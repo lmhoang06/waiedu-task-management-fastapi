@@ -8,9 +8,9 @@ import sys
 import os
 import datetime
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from models.core import User, UserToken
-from models.enums import UserStatusEnum
-from models.schemas import APIResponse
+from models.core import User, UserToken, ForgotPasswordRequest
+from models.enums import UserStatusEnum, ForgotPasswordRequestEnum
+from models.schemas import APIResponse, ForgotPasswordRequestIn
 from db import get_db
 from utils.jwt import get_user_from_token, create_access_token
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -34,18 +34,10 @@ async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)):
     
     # Must provide either username or email and password
     if not username and not email:
-        return {
-            "success": False,
-            "error": {"code": "MISSING_CREDENTIALS", "details": "Username or email is required."},
-            "message": "Username or email is required."
-        }
+        return APIResponse(success=False, error={"code": "MISSING_CREDENTIALS", "details": "Username or email is required."}, message="Username or email is required.")
     
     if not password:
-        return {
-            "success": False,
-            "error": {"code": "MISSING_CREDENTIALS", "details": "Password is required."},
-            "message": "Password is required."
-        }
+        return APIResponse(success=False, error={"code": "MISSING_CREDENTIALS", "details": "Password is required."}, message="Password is required.")
     
     # Query user by username or email
     query = select(User)
@@ -57,27 +49,15 @@ async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)):
     user = result.scalars().first()
 
     if not user:
-        return {
-            "success": False,
-            "error": {"code": "USER_NOT_FOUND", "details": "No user found with the provided credentials."},
-            "message": "Invalid username/email or password."
-        }
+        return APIResponse(success=False, error={"code": "USER_NOT_FOUND", "details": "No user found with the provided credentials."}, message="Invalid username/email or password.")
 
     # Check user status
     if user.status != UserStatusEnum.active:
-        return {
-            "success": False,
-            "error": {"code": "USER_NOT_ACTIVE", "details": f"User status is {user.status}."},
-            "message": "User account is not active."
-        }
+        return APIResponse(success=False, error={"code": "USER_NOT_ACTIVE", "details": f"User status is {user.status}."}, message="User account is not active.")
 
     # Verify password
     if not bcrypt.verify(password, user.password):
-        return {
-            "success": False,
-            "error": {"code": "INVALID_PASSWORD", "details": "Password is incorrect."},
-            "message": "Invalid username/email or password."
-        }
+        return APIResponse(success=False, error={"code": "INVALID_PASSWORD", "details": "Password is incorrect."}, message="Invalid username/email or password.")
 
     # Generate JWT access token
     access_token = create_access_token(user, expire_hours=TOKEN_EXPIRE_HOURS)
@@ -114,11 +94,7 @@ async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)):
         "avatar": user.avatar,
         "access_token": access_token
     }
-    return {
-        "success": True,
-        "data": user_data,
-        "message": "Login successful."
-    }
+    return APIResponse(success=True, data=user_data, message="Login successful.")
 
 bearer_scheme = HTTPBearer()
 
@@ -141,21 +117,47 @@ async def logout(
     if user_token:
         await db.delete(user_token)
         await db.commit()
-        return {
-            "success": True,
-            "message": "Logout successful."
-        }
+        return APIResponse(success=True, message="Logout successful.")
     else:
-        return {
-            "success": False,
-            "error": {"code": "TOKEN_NOT_FOUND", "details": "Token not found in database."},
-            "message": "Token not found or already logged out."
-        }
+        return APIResponse(
+            success=False, 
+            error={"code": "TOKEN_NOT_FOUND", "details": "Token not found in database."}, 
+            message="Token not found or already logged out."
+        )
 
-@router.post("/forgot-password")
-async def forgot_password():
-    return {"message": "Forgot password endpoint stub"}
+@router.post("/forgot-password", response_model=APIResponse)
+async def forgot_password(payload: ForgotPasswordRequestIn, db: AsyncSession = Depends(get_db)):
+    # Require at least username or email
+    if not payload.username and not payload.email:
+        return APIResponse(success=False, message="Username or email is required.", error={"code": "MISSING_CREDENTIALS"})
 
-@router.post("/reset-password")
-async def reset_password():
-    return {"message": "Reset password endpoint stub"} 
+    # Find user by username or email and full_name
+    query = select(User)
+    if payload.username:
+        query = query.where(User.username == payload.username)
+    else:
+        query = query.where(User.email == payload.email)
+    query = query.where(User.full_name == payload.full_name)
+    result = await db.execute(query)
+    user = result.scalars().first()
+    if not user:
+        return APIResponse(success=False, message="User not found with provided information.", error={"code": "USER_NOT_FOUND"})
+
+    # Hash the new password with bcrypt (rounds=12)
+    hashed_password = bcrypt.hash(payload.new_password, rounds=12)
+
+    # Create forgot password request
+    forgot_request = ForgotPasswordRequest(
+        user_id=user.id,
+        new_password=hashed_password,
+        status=ForgotPasswordRequestEnum.pending_approval
+    )
+    db.add(forgot_request)
+    await db.commit()
+    await db.refresh(forgot_request)
+
+    return APIResponse(
+        success=True,
+        data={"request_id": forgot_request.id, "status": forgot_request.status},
+        message="Password reset request submitted and pending admin approval."
+    )

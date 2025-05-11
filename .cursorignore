@@ -5,4 +5,11 @@ __pycache__
 *.pyw
 *.pyz
 venv/
+
+venv/
+.cursorignore
+.gitignore
 .env
+.env.local
+.env.development
+.env.production
