@@ -98,6 +98,9 @@ async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)):
     )
     db.add(user_token)
 
+    # Update last_login timestamp
+    user.last_login = datetime.datetime.now(datetime.timezone.utc)
+
     # Commit once, after both operations
     await db.commit()
 
