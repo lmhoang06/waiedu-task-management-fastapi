@@ -75,6 +75,16 @@
 - [ ] GET    /reports/team-stats        - Team statistics
 - [ ] GET    /reports/export            - Export report
 
+## 12. Admin Requests
+- [ ] GET    /admin/requests                                      - List all admin requests (all types)
+- [ ] forgot-password
+    - [ ] GET    /admin/requests/forgot-password                       - List all forgot password requests
+    - [ ] GET    /admin/requests/forgot-password/{request_id}          - Get forgot password request detail
+    - [ ] POST   /admin/requests/forgot-password/{request_id}/approve  - Approve forgot password request
+    - [ ] POST   /admin/requests/forgot-password/{request_id}/reject   - Reject forgot password request
+
+### Note: Each admin request type (e.g., forgot-password, project, etc.) should have its own handler/module for processing. The admin request process is designed to support multiple request types, each with its own logic and endpoints as needed.
+
 ---
 
 # Database Architecture (PostgreSQL)

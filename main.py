@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
 from db import engine, AsyncSessionLocal
+from routers.admin_requests import router as admin_requests_router
 
 load_dotenv()
 
@@ -36,6 +37,7 @@ app.include_router(comments.router)
 app.include_router(comments.task_router)
 app.include_router(dashboard.router)
 app.include_router(reports.router)
+app.include_router(admin_requests_router)
 
 @app.get("/")
 async def root():
