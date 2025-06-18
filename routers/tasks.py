@@ -5,7 +5,7 @@ from sqlalchemy.future import select
 from typing import Optional, List
 from pydantic import BaseModel
 from datetime import datetime
-from models.schemas import APIResponse
+from models.schemas import APIResponse, ErrorDetail
 from db import get_db
 from models.project import Task, TaskAssignment, Project
 from utils.jwt import require_admin_user, get_user_from_token
@@ -100,7 +100,7 @@ async def list_tasks(
         if status not in [e.value for e in TaskStatusEnum]:
             return {
                 "success": False,
-                "error": {"code": "INVALID_STATUS", "details": f"Invalid status: {status}"},
+                "error": ErrorDetail(code="INVALID_STATUS", details=f"Invalid status: {status}"),
                 "message": f"Invalid status filter: {status}"
             }
         query = query.where(Task.status == status)
@@ -137,7 +137,7 @@ async def create_task(
     if not project:
         return {
             "success": False,
-            "error": {"code": "PROJECT_NOT_FOUND", "details": f"No project exists with id {task.project_id}."},
+            "error": ErrorDetail(code="PROJECT_NOT_FOUND", details=f"No project exists with id {task.project_id}."),
             "message": "Project not found."
         }
     
@@ -149,7 +149,7 @@ async def create_task(
     if not (is_user_admin or is_project_manager):
         return {
             "success": False,
-            "error": {"code": "FORBIDDEN", "details": "Only the project's manager or admins can create tasks."},
+            "error": ErrorDetail(code="FORBIDDEN", details="Only the project's manager or admins can create tasks."),
             "message": "You don't have permission to create tasks in this project."
         }
     
@@ -157,7 +157,7 @@ async def create_task(
     if task.priority not in [e.value for e in PriorityEnum]:
         return {
             "success": False,
-            "error": {"code": "INVALID_PRIORITY", "details": f"Invalid priority: {task.priority}"},
+            "error": ErrorDetail(code="INVALID_PRIORITY", details=f"Invalid priority: {task.priority}"),
             "message": f"Invalid priority: {task.priority}"
         }
     
@@ -186,7 +186,7 @@ async def get_task(task_id: int, db: AsyncSession = Depends(get_db)):
     if not task:
         return {
             "success": False,
-            "error": {"code": "TASK_NOT_FOUND", "details": f"No task exists with id {task_id}."},
+            "error": ErrorDetail(code="TASK_NOT_FOUND", details=f"No task exists with id {task_id}."),
             "message": "Task not found."
         }
     
@@ -213,7 +213,7 @@ async def update_task(
     if not task:
         return {
             "success": False,
-            "error": {"code": "TASK_NOT_FOUND", "details": f"No task exists with id {task_id}."},
+            "error": ErrorDetail(code="TASK_NOT_FOUND", details=f"No task exists with id {task_id}."),
             "message": "Task not found."
         }
     
@@ -231,7 +231,7 @@ async def update_task(
         if task_update.status not in [e.value for e in TaskStatusEnum]:
             return {
                 "success": False,
-                "error": {"code": "INVALID_STATUS", "details": f"Invalid status: {task_update.status}"},
+                "error": ErrorDetail(code="INVALID_STATUS", details=f"Invalid status: {task_update.status}"),
                 "message": f"Invalid status: {task_update.status}"
             }
         
@@ -248,7 +248,7 @@ async def update_task(
             if not (is_user_admin or is_project_manager):
                 return {
                     "success": False,
-                    "error": {"code": "FORBIDDEN", "details": "Only admin or project manager can cancel a task."},
+                    "error": ErrorDetail(code="FORBIDDEN", details="Only admin or project manager can cancel a task."),
                     "message": "You don't have permission to cancel this task."
                 }
         
@@ -274,7 +274,7 @@ async def update_task(
         if not (is_user_admin or is_project_manager or is_task_assignee):
             return {
                 "success": False,
-                "error": {"code": "FORBIDDEN", "details": "Only admin, project manager, or assigned users can update task status."},
+                "error": ErrorDetail(code="FORBIDDEN", details="Only admin, project manager, or assigned users can update task status."),
                 "message": "You don't have permission to update this task's status."
             }
     
@@ -290,7 +290,7 @@ async def update_task(
     if not (is_user_admin or is_project_manager):
         return {
             "success": False,
-            "error": {"code": "FORBIDDEN", "details": "Only the project's manager or admins can update tasks."},
+            "error": ErrorDetail(code="FORBIDDEN", details="Only the project's manager or admins can update tasks."),
             "message": "You don't have permission to update this task."
         }
     
@@ -301,7 +301,7 @@ async def update_task(
         if not project:
             return {
                 "success": False,
-                "error": {"code": "PROJECT_NOT_FOUND", "details": f"No project exists with id {task_update.project_id}."},
+                "error": ErrorDetail(code="PROJECT_NOT_FOUND", details=f"No project exists with id {task_update.project_id}."),
                 "message": "Target project not found."
             }
         
@@ -309,7 +309,7 @@ async def update_task(
         if not has_project_permission:
             return {
                 "success": False,
-                "error": {"code": "FORBIDDEN", "details": "You don't have permission to move this task to the target project."},
+                "error": ErrorDetail(code="FORBIDDEN", details="You don't have permission to move this task to the target project."),
                 "message": "You don't have permission to move this task to the target project."
             }
     
@@ -317,7 +317,7 @@ async def update_task(
     if task_update.priority and task_update.priority not in [e.value for e in PriorityEnum]:
         return {
             "success": False,
-            "error": {"code": "INVALID_PRIORITY", "details": f"Invalid priority: {task_update.priority}"},
+            "error": ErrorDetail(code="INVALID_PRIORITY", details=f"Invalid priority: {task_update.priority}"),
             "message": f"Invalid priority: {task_update.priority}"
         }
     
@@ -350,7 +350,7 @@ async def delete_task(
     if not task:
         return {
             "success": False,
-            "error": {"code": "TASK_NOT_FOUND", "details": f"No task exists with id {task_id}."},
+            "error": ErrorDetail(code="TASK_NOT_FOUND", details=f"No task exists with id {task_id}."),
             "message": "Task not found."
         }
     
@@ -361,7 +361,7 @@ async def delete_task(
     if not (is_user_admin or is_task_creator):
         return {
             "success": False,
-            "error": {"code": "FORBIDDEN", "details": "Only task creator or admins can delete tasks."},
+            "error": ErrorDetail(code="FORBIDDEN", details="Only task creator or admins can delete tasks."),
             "message": "You don't have permission to delete this task."
         }
     
@@ -383,7 +383,7 @@ async def list_task_assignees(task_id: int, db: AsyncSession = Depends(get_db)):
     if not task:
         return {
             "success": False,
-            "error": {"code": "TASK_NOT_FOUND", "details": f"No task exists with id {task_id}."},
+            "error": ErrorDetail(code="TASK_NOT_FOUND", details=f"No task exists with id {task_id}."),
             "message": "Task not found."
         }
     
@@ -422,7 +422,7 @@ async def assign_task(
     if not task:
         return {
             "success": False,
-            "error": {"code": "TASK_NOT_FOUND", "details": f"No task exists with id {task_id}."},
+            "error": ErrorDetail(code="TASK_NOT_FOUND", details=f"No task exists with id {task_id}."),
             "message": "Task not found."
         }
     
@@ -431,7 +431,7 @@ async def assign_task(
     if not has_permission:
         return {
             "success": False,
-            "error": {"code": "FORBIDDEN", "details": "Only task creator, project members, or admins can assign tasks."},
+            "error": ErrorDetail(code="FORBIDDEN", details="Only task creator, project members, or admins can assign tasks."),
             "message": "You don't have permission to assign this task."
         }
     
@@ -442,7 +442,7 @@ async def assign_task(
     if not target_user:
         return {
             "success": False,
-            "error": {"code": "USER_NOT_FOUND", "details": f"No user exists with id {assignment.user_id}."},
+            "error": ErrorDetail(code="USER_NOT_FOUND", details=f"No user exists with id {assignment.user_id}."),
             "message": "User not found."
         }
     
@@ -456,7 +456,7 @@ async def assign_task(
     if existing_assignment:
         return {
             "success": False,
-            "error": {"code": "ALREADY_ASSIGNED", "details": f"User {assignment.user_id} is already assigned to task {task_id}."},
+            "error": ErrorDetail(code="ALREADY_ASSIGNED", details=f"User {assignment.user_id} is already assigned to task {task_id}."),
             "message": "User is already assigned to this task."
         }
     
@@ -493,7 +493,7 @@ async def unassign_task(
     if not task:
         return {
             "success": False,
-            "error": {"code": "TASK_NOT_FOUND", "details": f"No task exists with id {task_id}."},
+            "error": ErrorDetail(code="TASK_NOT_FOUND", details=f"No task exists with id {task_id}."),
             "message": "Task not found."
         }
     
@@ -506,7 +506,7 @@ async def unassign_task(
     if not (is_user_admin or is_task_creator or is_project_member_user or is_self_unassign):
         return {
             "success": False,
-            "error": {"code": "FORBIDDEN", "details": "You don't have permission to unassign users from this task."},
+            "error": ErrorDetail(code="FORBIDDEN", details="You don't have permission to unassign users from this task."),
             "message": "You don't have permission to unassign users from this task."
         }
     
@@ -521,7 +521,7 @@ async def unassign_task(
     if not assignment:
         return {
             "success": False,
-            "error": {"code": "ASSIGNMENT_NOT_FOUND", "details": f"User {user_id} is not assigned to task {task_id}."},
+            "error": ErrorDetail(code="ASSIGNMENT_NOT_FOUND", details=f"User {user_id} is not assigned to task {task_id}."),
             "message": "User is not assigned to this task."
         }
     

@@ -9,7 +9,7 @@ from typing import List, Optional
 from db import get_db
 from utils.jwt import require_admin_user
 from models.enums import ForgotPasswordRequestEnum
-from models.schemas import APIResponse
+from models.schemas import APIResponse, ErrorDetail
 from models.core import ForgotPasswordRequest, User
 
 bearer_scheme = HTTPBearer()
@@ -38,6 +38,11 @@ class ForgotPasswordRequestModel(BaseModel):
 
 @router.get("/", response_model=APIResponse)
 async def list_forgot_password_requests(db: AsyncSession = Depends(get_db)):
+    """
+    List all forgot password requests.
+
+    Admin only. Returns all forgot password requests in the system.
+    """
     result = await db.execute(select(ForgotPasswordRequest))
     requests = result.scalars().all()
     
@@ -49,13 +54,18 @@ async def list_forgot_password_requests(db: AsyncSession = Depends(get_db)):
 
 @router.get("/{request_id}", response_model=APIResponse)
 async def get_forgot_password_request(request_id: int, db: AsyncSession = Depends(get_db)):
+    """
+    Get forgot password request detail.
+
+    Admin only. Returns details for a specific forgot password request by ID.
+    """
     result = await db.execute(select(ForgotPasswordRequest).where(ForgotPasswordRequest.id == request_id))
     request = result.scalars().first()
     
     if not request:
         return APIResponse(
             success=False,
-            error={"code": "REQUEST_NOT_FOUND", "details": f"No request exists with id {request_id}."},
+            error=ErrorDetail(code="REQUEST_NOT_FOUND", details=f"No request exists with id {request_id}."),
             message="Forgot password request not found."
         )
     
@@ -67,6 +77,11 @@ async def get_forgot_password_request(request_id: int, db: AsyncSession = Depend
 
 @router.post("/{request_id}/approve", response_model=APIResponse)
 async def approve_forgot_password_request(request_id: int, db: AsyncSession = Depends(get_db)):
+    """
+    Approve a forgot password request.
+
+    Admin only. Approves a pending request and updates the user's password.
+    """
     # First check if request exists and is pending
     result = await db.execute(select(ForgotPasswordRequest).where(ForgotPasswordRequest.id == request_id))
     request = result.scalars().first()
@@ -74,14 +89,14 @@ async def approve_forgot_password_request(request_id: int, db: AsyncSession = De
     if not request:
         return APIResponse(
             success=False,
-            error={"code": "REQUEST_NOT_FOUND", "details": f"No request exists with id {request_id}."},
+            error=ErrorDetail(code="REQUEST_NOT_FOUND", details=f"No request exists with id {request_id}."),
             message="Forgot password request not found."
         )
     
     if request.status != ForgotPasswordRequestEnum.pending_approval:
         return APIResponse(
             success=False,
-            error={"code": "INVALID_STATE", "details": f"Cannot approve request with status: {request.status.value}"},
+            error=ErrorDetail(code="INVALID_STATE", details=f"Cannot approve request with status: {request.status.value}"),
             message=f"Cannot approve request with status: {request.status.value}"
         )
     
@@ -95,7 +110,7 @@ async def approve_forgot_password_request(request_id: int, db: AsyncSession = De
     if not user:
         return APIResponse(
             success=False,
-            error={"code": "USER_NOT_FOUND", "details": f"User with id {request.user_id} not found."},
+            error=ErrorDetail(code="USER_NOT_FOUND", details=f"User with id {request.user_id} not found."),
             message="User not found."
         )
     
@@ -111,6 +126,11 @@ async def approve_forgot_password_request(request_id: int, db: AsyncSession = De
 
 @router.post("/{request_id}/reject", response_model=APIResponse)
 async def reject_forgot_password_request(request_id: int, db: AsyncSession = Depends(get_db)):
+    """
+    Reject a forgot password request.
+
+    Admin only. Rejects a pending forgot password request.
+    """
     # First check if request exists and is pending
     result = await db.execute(select(ForgotPasswordRequest).where(ForgotPasswordRequest.id == request_id))
     request = result.scalars().first()
@@ -118,14 +138,14 @@ async def reject_forgot_password_request(request_id: int, db: AsyncSession = Dep
     if not request:
         return APIResponse(
             success=False,
-            error={"code": "REQUEST_NOT_FOUND", "details": f"No request exists with id {request_id}."},
+            error=ErrorDetail(code="REQUEST_NOT_FOUND", details=f"No request exists with id {request_id}."),
             message="Forgot password request not found."
         )
     
     if request.status != ForgotPasswordRequestEnum.pending_approval:
         return APIResponse(
             success=False,
-            error={"code": "INVALID_STATE", "details": f"Cannot reject request with status: {request.status.value}"},
+            error=ErrorDetail(code="INVALID_STATE", details=f"Cannot reject request with status: {request.status.value}"),
             message=f"Cannot reject request with status: {request.status.value}"
         )
     

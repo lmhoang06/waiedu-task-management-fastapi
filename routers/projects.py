@@ -5,7 +5,7 @@ from sqlalchemy.future import select
 from typing import Optional
 from pydantic import BaseModel
 from datetime import datetime
-from models.schemas import APIResponse
+from models.schemas import APIResponse, ErrorDetail
 from db import get_db
 from models.project import Project, ProjectMember
 from utils.jwt import require_admin_user, get_user_from_token
@@ -121,7 +121,7 @@ async def get_project(project_id: int, db: AsyncSession = Depends(get_db)):
     if not project:
         return {
             "success": False,
-            "error": {"code": "PROJECT_NOT_FOUND", "details": f"No project exists with id {project_id}."},
+            "error": ErrorDetail(code="PROJECT_NOT_FOUND", details=f"No project exists with id {project_id}."),
             "message": "Project not found."
         }
     return {
@@ -145,7 +145,7 @@ async def update_project(
     if not project:
         return {
             "success": False,
-            "error": {"code": "PROJECT_NOT_FOUND", "details": f"No project exists with id {project_id}."},
+            "error": ErrorDetail(code="PROJECT_NOT_FOUND", details=f"No project exists with id {project_id}."),
             "message": "Project not found."
         }
     admin = await is_admin(user, db)
@@ -176,7 +176,7 @@ async def update_project(
             if not (admin or manager):
                 return {
                     "success": False,
-                    "error": {"code": "FORBIDDEN", "details": "Only admin or this project's manager can set completed."},
+                    "error": ErrorDetail(code="FORBIDDEN", details="Only admin or this project's manager can set completed."),
                     "message": "You do not have permission to complete this project."
                 }
             project.status = ProjectStatusEnum.completed.value
@@ -184,21 +184,21 @@ async def update_project(
             if not admin:
                 return {
                     "success": False,
-                    "error": {"code": "FORBIDDEN", "details": f"Only admin can set status to {new_status}."},
+                    "error": ErrorDetail(code="FORBIDDEN", details=f"Only admin can set status to {new_status}."),
                     "message": f"Only admin can set status to {new_status}."
                 }
             project.status = allowed_admin_statuses[new_status]
         else:
             return {
                 "success": False,
-                "error": {"code": "INVALID_STATUS", "details": f"Invalid status update: {new_status}"},
+                "error": ErrorDetail(code="INVALID_STATUS", details=f"Invalid status update: {new_status}"),
                 "message": f"Invalid status update: {new_status}"
             }
     # Handle other fields update
     if not (admin or manager):
         return {
             "success": False,
-            "error": {"code": "FORBIDDEN", "details": "Only admin or this project's manager can update this project."},
+            "error": ErrorDetail(code="FORBIDDEN", details="Only admin or this project's manager can update this project."),
             "message": "You do not have permission to update this project."
         }
     for key, value in update_data.items():
@@ -224,7 +224,7 @@ async def delete_project(
     if not admin:
         return {
             "success": False,
-            "error": {"code": "FORBIDDEN", "details": "Only admin can delete a project."},
+            "error": ErrorDetail(code="FORBIDDEN", details="Only admin can delete a project."),
             "message": "You do not have permission to delete this project."
         }
     result = await db.execute(select(Project).where(Project.id == project_id))
@@ -232,7 +232,7 @@ async def delete_project(
     if not project:
         return {
             "success": False,
-            "error": {"code": "PROJECT_NOT_FOUND", "details": f"No project exists with id {project_id}."},
+            "error": ErrorDetail(code="PROJECT_NOT_FOUND", details=f"No project exists with id {project_id}."),
             "message": "Project not found."
         }
     await db.delete(project)
@@ -253,7 +253,7 @@ async def list_project_members(
     if not project:
         return {
             "success": False,
-            "error": {"code": "PROJECT_NOT_FOUND", "details": f"No project exists with id {project_id}."},
+            "error": ErrorDetail(code="PROJECT_NOT_FOUND", details=f"No project exists with id {project_id}."),
             "message": "Project not found."
         }
     
@@ -291,7 +291,7 @@ async def add_project_member(
     if not project:
         return {
             "success": False,
-            "error": {"code": "PROJECT_NOT_FOUND", "details": f"No project exists with id {project_id}."},
+            "error": ErrorDetail(code="PROJECT_NOT_FOUND", details=f"No project exists with id {project_id}."),
             "message": "Project not found."
         }
     
@@ -301,7 +301,7 @@ async def add_project_member(
     if not (admin or manager):
         return {
             "success": False,
-            "error": {"code": "FORBIDDEN", "details": "Only admin or this project's manager can add members."},
+            "error": ErrorDetail(code="FORBIDDEN", details="Only admin or this project's manager can add members."),
             "message": "You do not have permission to add members to this project."
         }
     
@@ -311,7 +311,7 @@ async def add_project_member(
     if not user_to_add:
         return {
             "success": False,
-            "error": {"code": "USER_NOT_FOUND", "details": f"No user exists with id {member_data['user_id']}."},
+            "error": ErrorDetail(code="USER_NOT_FOUND", details=f"No user exists with id {member_data['user_id']}."),
             "message": "User not found."
         }
     
@@ -326,7 +326,7 @@ async def add_project_member(
     if existing_member:
         return {
             "success": False,
-            "error": {"code": "ALREADY_MEMBER", "details": f"User {member_data['user_id']} is already a member of project {project_id}."},
+            "error": ErrorDetail(code="ALREADY_MEMBER", details=f"User {member_data['user_id']} is already a member of project {project_id}."),
             "message": "User is already a member of the project."
         }
     
@@ -363,7 +363,7 @@ async def remove_project_member(
     if not project:
         return {
             "success": False,
-            "error": {"code": "PROJECT_NOT_FOUND", "details": f"No project exists with id {project_id}."},
+            "error": ErrorDetail(code="PROJECT_NOT_FOUND", details=f"No project exists with id {project_id}."),
             "message": "Project not found."
         }
     
@@ -373,7 +373,7 @@ async def remove_project_member(
     if not (admin or manager):
         return {
             "success": False,
-            "error": {"code": "FORBIDDEN", "details": "Only admin or this project's manager can remove members."},
+            "error": ErrorDetail(code="FORBIDDEN", details="Only admin or this project's manager can remove members."),
             "message": "You do not have permission to remove members from this project."
         }
     
@@ -388,7 +388,7 @@ async def remove_project_member(
     if not member:
         return {
             "success": False,
-            "error": {"code": "MEMBER_NOT_FOUND", "details": f"User {user_id} is not a member of project {project_id}."},
+            "error": ErrorDetail(code="MEMBER_NOT_FOUND", details=f"User {user_id} is not a member of project {project_id}."),
             "message": "User is not a member of the project."
         }
     
@@ -396,7 +396,7 @@ async def remove_project_member(
     if user_id == project.manager_id:
         return {
             "success": False,
-            "error": {"code": "CANNOT_REMOVE_MANAGER", "details": "Cannot remove the project manager from the project."},
+            "error": ErrorDetail(code="CANNOT_REMOVE_MANAGER", details="Cannot remove the project manager from the project."),
             "message": "Cannot remove the project manager from the project."
         }
     

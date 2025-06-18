@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
-from models.schemas import APIResponse
+from models.schemas import APIResponse, ErrorDetail
 from db import get_db
 from models.core import Team, User, Role, TeamMember
 from utils.jwt import require_admin_user
@@ -104,7 +104,7 @@ async def get_team(team_id: int, db: AsyncSession = Depends(get_db)):
     if not team:
         return {
             "success": False,
-            "error": {"code": "TEAM_NOT_FOUND", "details": f"No team exists with id {team_id}."},
+            "error": ErrorDetail(code="TEAM_NOT_FOUND", details=f"No team exists with id {team_id}."),
             "message": "Team not found."
         }
     return {
@@ -127,7 +127,7 @@ async def update_team(
     if not team:
         return {
             "success": False,
-            "error": {"code": "TEAM_NOT_FOUND", "details": f"No team exists with id {team_id}."},
+            "error": ErrorDetail(code="TEAM_NOT_FOUND", details=f"No team exists with id {team_id}."),
             "message": "Team not found."
         }
     
@@ -171,7 +171,7 @@ async def delete_team(
     if not team:
         return {
             "success": False,
-            "error": {"code": "TEAM_NOT_FOUND", "details": f"No team exists with id {team_id}."},
+            "error": ErrorDetail(code="TEAM_NOT_FOUND", details=f"No team exists with id {team_id}."),
             "message": "Team not found."
         }
     await db.delete(team)
@@ -188,7 +188,7 @@ async def list_team_members(team_id: int, db: AsyncSession = Depends(get_db)):
     if not team:
         return {
             "success": False,
-            "error": {"code": "TEAM_NOT_FOUND", "details": f"No team exists with id {team_id}."},
+            "error": ErrorDetail(code="TEAM_NOT_FOUND", details=f"No team exists with id {team_id}."),
             "message": "Team not found."
         }
     result = await db.execute(select(TeamMember).where(TeamMember.team_id == team_id))
@@ -222,7 +222,7 @@ async def add_team_member(
     if not team:
         return {
             "success": False,
-            "error": {"code": "TEAM_NOT_FOUND", "details": f"No team exists with id {team_id}."},
+            "error": ErrorDetail(code="TEAM_NOT_FOUND", details=f"No team exists with id {team_id}."),
             "message": "Team not found."
         }
     # Check if user exists
@@ -231,7 +231,7 @@ async def add_team_member(
     if not user:
         return {
             "success": False,
-            "error": {"code": "USER_NOT_FOUND", "details": f"No user exists with id {member_data['user_id']}."},
+            "error": ErrorDetail(code="USER_NOT_FOUND", details=f"No user exists with id {member_data['user_id']}."),
             "message": "User not found."
         }
     # Check if already a member
@@ -240,7 +240,7 @@ async def add_team_member(
     if existing:
         return {
             "success": False,
-            "error": {"code": "ALREADY_MEMBER", "details": f"User {member_data['user_id']} is already a member of team {team_id}."},
+            "error": ErrorDetail(code="ALREADY_MEMBER", details=f"User {member_data['user_id']} is already a member of team {team_id}."),
             "message": "User is already a member of the team."
         }
     db_member = TeamMember(team_id=team_id, **member_data)
@@ -267,7 +267,7 @@ async def remove_team_member(
     if not member:
         return {
             "success": False,
-            "error": {"code": "MEMBER_NOT_FOUND", "details": f"User {user_id} is not a member of team {team_id}."},
+            "error": ErrorDetail(code="MEMBER_NOT_FOUND", details=f"User {user_id} is not a member of team {team_id}."),
             "message": "Member not found in team."
         }
     await db.delete(member)

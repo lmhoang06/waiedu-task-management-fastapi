@@ -6,7 +6,7 @@ from typing import Optional, List, Dict, Any, Union, Annotated
 from pydantic import BaseModel, Field, StringConstraints
 from datetime import datetime
 from passlib.hash import bcrypt
-from models.schemas import APIResponse
+from models.schemas import APIResponse, ErrorDetail
 from db import get_db
 from models.core import User, Role
 from models.enums import UserStatusEnum
@@ -60,6 +60,12 @@ async def list_users(
     db: AsyncSession = Depends(get_db),
     credentials: HTTPAuthorizationCredentials = Security(bearer_scheme)
 ):
+    """
+    List Users.
+
+    Retrieves a list of all users in the system.
+    Requires authentication.
+    """
     user, error = await get_user_from_token(credentials.credentials, db)
     if error:
         return error
@@ -79,6 +85,21 @@ async def create_user(
     db: AsyncSession = Depends(get_db),
     credentials: HTTPAuthorizationCredentials = Security(bearer_scheme)
 ):
+    """
+    Create User.
+
+    Creates a new user in the system. Requires administrator privileges.
+    The user's status will be set to 'active' upon creation by an admin.
+
+    Request body fields (from UserCreate model):
+    - **username** (str): Unique username (3-63 characters).
+    - **email** (EmailStr): Unique email address.
+    - **full_name** (str, optional): User's full name (max 255 characters).
+    - **status** (str, optional): User status (e.g., 'active', 'pending_approval'). Defaults to 'pending_approval' if not set by admin, admin creation defaults to 'active'.
+    - **role_id** (int): ID of the role to assign to the user.
+    - **avatar** (str, optional): URL to the user's avatar image (max 255 characters).
+    - **password** (str): User's password (min 8 characters).
+    """
     admin, error = await require_admin_user(credentials.credentials, db)
     if error:
         return error
@@ -88,7 +109,7 @@ async def create_user(
     if result.scalars().first():
         return {
             "success": False,
-            "error": {"code": "USERNAME_EXISTS", "details": "Username already exists."},
+            "error": ErrorDetail(code="USERNAME_EXISTS", details="Username already exists."),
             "message": "Username already exists."
         }
     
@@ -97,7 +118,7 @@ async def create_user(
     if result.scalars().first():
         return {
             "success": False,
-            "error": {"code": "EMAIL_EXISTS", "details": "Email already exists."},
+            "error": ErrorDetail(code="EMAIL_EXISTS", details="Email already exists."),
             "message": "Email already exists."
         }
     
@@ -106,7 +127,7 @@ async def create_user(
     if not result.scalars().first():
         return {
             "success": False,
-            "error": {"code": "ROLE_NOT_FOUND", "details": f"No role exists with id {user.role_id}."},
+            "error": ErrorDetail(code="ROLE_NOT_FOUND", details=f"No role exists with id {user.role_id}."),
             "message": "Role not found."
         }
     
@@ -118,7 +139,7 @@ async def create_user(
         if user.status not in [e.value for e in UserStatusEnum]:
             return {
                 "success": False,
-                "error": {"code": "INVALID_STATUS", "details": f"Invalid status: {user.status}"},
+                "error": ErrorDetail(code="INVALID_STATUS", details=f"Invalid status: {user.status}"),
                 "message": f"Invalid status: {user.status}"
             }
         user_status = user.status
@@ -148,6 +169,15 @@ async def get_user(
     db: AsyncSession = Depends(get_db),
     credentials: HTTPAuthorizationCredentials = Security(bearer_scheme)
 ):
+    """
+    Get User by ID.
+
+    Retrieves detailed information for a specific user by their ID.
+    Any authenticated user can access this endpoint.
+
+    Path parameters:
+    - **id** (int): The ID of the user to retrieve.
+    """
     current_user, error = await get_user_from_token(credentials.credentials, db)
     if error:
         return error
@@ -160,7 +190,7 @@ async def get_user(
     if not user:
         return {
             "success": False,
-            "error": {"code": "USER_NOT_FOUND", "details": f"No user exists with id {id}."},
+            "error": ErrorDetail(code="USER_NOT_FOUND", details=f"No user exists with id {id}."),
             "message": "User not found."
         }
     
@@ -177,6 +207,25 @@ async def update_user(
     db: AsyncSession = Depends(get_db),
     credentials: HTTPAuthorizationCredentials = Security(bearer_scheme)
 ):
+    """
+    Update User.
+
+    Updates specified fields for a user. 
+    Administrators can update any user. Regular users can only update their own profiles.
+    Attempting to update protected fields (e.g., timestamps) will be ignored.
+
+    Path parameters:
+    - **id** (int): The ID of the user to update.
+
+    Request body fields (from UserUpdate model, all optional):
+    - **username** (str): New username (3-63 characters).
+    - **email** (EmailStr): New email address.
+    - **full_name** (str): New full name (max 255 characters).
+    - **status** (str): New user status (admin only).
+    - **role_id** (int): New role ID (admin only).
+    - **password** (str): New password (min 8 characters).
+    - **avatar** (str): New URL to avatar image (max 255 characters).
+    """
     current_user, error = await get_user_from_token(credentials.credentials, db)
     if error:
         return error
@@ -194,7 +243,7 @@ async def update_user(
     if not user:
         return {
             "success": False,
-            "error": {"code": "USER_NOT_FOUND", "details": f"No user exists with id {id}."},
+            "error": ErrorDetail(code="USER_NOT_FOUND", details=f"No user exists with id {id}."),
             "message": "User not found."
         }
     
@@ -202,7 +251,7 @@ async def update_user(
     if not is_admin and current_user.id != id:
         return {
             "success": False,
-            "error": {"code": "FORBIDDEN", "details": "You can only update your own profile."},
+            "error": ErrorDetail(code="FORBIDDEN", details="You can only update your own profile."),
             "message": "You can only update your own profile."
         }
     
@@ -235,7 +284,7 @@ async def update_user(
         if result.scalars().first():
             return {
                 "success": False,
-                "error": {"code": "USERNAME_EXISTS", "details": "Username already exists."},
+                "error": ErrorDetail(code="USERNAME_EXISTS", details="Username already exists."),
                 "message": "Username already exists."
             }
     
@@ -245,7 +294,7 @@ async def update_user(
         if result.scalars().first():
             return {
                 "success": False,
-                "error": {"code": "EMAIL_EXISTS", "details": "Email already exists."},
+                "error": ErrorDetail(code="EMAIL_EXISTS", details="Email already exists."),
                 "message": "Email already exists."
             }
     
@@ -255,7 +304,7 @@ async def update_user(
         if not result.scalars().first():
             return {
                 "success": False,
-                "error": {"code": "ROLE_NOT_FOUND", "details": f"No role exists with id {update_data['role_id']}."},
+                "error": ErrorDetail(code="ROLE_NOT_FOUND", details=f"No role exists with id {update_data['role_id']}."),
                 "message": "Role not found."
             }
     
@@ -264,7 +313,7 @@ async def update_user(
         if update_data["status"] not in [e.value for e in UserStatusEnum]:
             return {
                 "success": False,
-                "error": {"code": "INVALID_STATUS", "details": f"Invalid status: {update_data['status']}"},
+                "error": ErrorDetail(code="INVALID_STATUS", details=f"Invalid status: {update_data['status']}"),
                 "message": f"Invalid status: {update_data['status']}"
             }
     
@@ -291,6 +340,15 @@ async def delete_user(
     db: AsyncSession = Depends(get_db),
     credentials: HTTPAuthorizationCredentials = Security(bearer_scheme)
 ):
+    """
+    Deactivate User.
+
+    Marks a user as 'inactive' (soft delete). Requires administrator privileges.
+    The user is not permanently removed from the database.
+
+    Path parameters:
+    - **id** (int): The ID of the user to deactivate.
+    """
     admin, error = await require_admin_user(credentials.credentials, db)
     if error:
         return error
@@ -301,7 +359,7 @@ async def delete_user(
     if not user:
         return {
             "success": False,
-            "error": {"code": "USER_NOT_FOUND", "details": f"No user exists with id {id}."},
+            "error": ErrorDetail(code="USER_NOT_FOUND", details=f"No user exists with id {id}."),
             "message": "User not found."
         }
     

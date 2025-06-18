@@ -10,7 +10,7 @@ import datetime
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from models.core import User, UserToken, ForgotPasswordRequest
 from models.enums import UserStatusEnum, ForgotPasswordRequestEnum
-from models.schemas import APIResponse, ForgotPasswordRequestIn
+from models.schemas import APIResponse, ForgotPasswordRequestIn, ErrorDetail
 from db import get_db
 from utils.jwt import get_user_from_token, create_access_token
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -26,6 +26,18 @@ TOKEN_EXPIRE_HOURS = 24
 
 @router.post("/login", response_model=APIResponse)
 async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)):
+    """
+    User Login.
+
+    Authenticates a user by validating their credentials.
+    Requires either a username or an email, and a password in the request body.
+    On successful authentication, returns user details and a JWT access token.
+
+    Request body fields:
+    - **username** (str, optional): The user's username. Provide if email is not used.
+    - **email** (str, optional): The user's email address. Provide if username is not used.
+    - **password** (str): The user's password.
+    """
     # Filter to only use expected fields
     login_data = payload.model_dump(exclude_unset=True)
     username = login_data.get("username")
@@ -34,10 +46,10 @@ async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)):
     
     # Must provide either username or email and password
     if not username and not email:
-        return APIResponse(success=False, error={"code": "MISSING_CREDENTIALS", "details": "Username or email is required."}, message="Username or email is required.")
+        return APIResponse(success=False, message="Username or email is required.", error=ErrorDetail(code="MISSING_CREDENTIALS", details="Username or email is required."))
     
     if not password:
-        return APIResponse(success=False, error={"code": "MISSING_CREDENTIALS", "details": "Password is required."}, message="Password is required.")
+        return APIResponse(success=False, error=ErrorDetail(code="MISSING_CREDENTIALS", details="Password is required."), message="Password is required.")
     
     # Query user by username or email
     query = select(User)
@@ -49,15 +61,15 @@ async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)):
     user = result.scalars().first()
 
     if not user:
-        return APIResponse(success=False, error={"code": "USER_NOT_FOUND", "details": "No user found with the provided credentials."}, message="Invalid username/email or password.")
+        return APIResponse(success=False, error=ErrorDetail(code="USER_NOT_FOUND", details="No user found with the provided credentials."), message="Invalid username/email or password.")
 
     # Check user status
     if user.status != UserStatusEnum.active:
-        return APIResponse(success=False, error={"code": "USER_NOT_ACTIVE", "details": f"User status is {user.status}."}, message="User account is not active.")
+        return APIResponse(success=False, error=ErrorDetail(code="USER_NOT_ACTIVE", details=f"User status is {user.status}."), message="User account is not active.")
 
     # Verify password
     if not bcrypt.verify(password, user.password):
-        return APIResponse(success=False, error={"code": "INVALID_PASSWORD", "details": "Password is incorrect."}, message="Invalid username/email or password.")
+        return APIResponse(success=False, error=ErrorDetail(code="INVALID_PASSWORD", details="Password is incorrect."), message="Invalid username/email or password.")
 
     # Generate JWT access token
     access_token = create_access_token(user, expire_hours=TOKEN_EXPIRE_HOURS)
@@ -103,6 +115,11 @@ async def logout(
     db: AsyncSession = Depends(get_db),
     credentials: HTTPAuthorizationCredentials = Security(bearer_scheme)
 ):
+    """
+    User Logout.
+
+    Invalidates the active session token provided in the Authorization header (Bearer token).
+    """
     # We only need the token from credentials
     token = credentials.credentials
     
@@ -121,15 +138,26 @@ async def logout(
     else:
         return APIResponse(
             success=False, 
-            error={"code": "TOKEN_NOT_FOUND", "details": "Token not found in database."}, 
+            error=ErrorDetail(code="TOKEN_NOT_FOUND", details="Token not found in database."), 
             message="Token not found or already logged out."
         )
 
 @router.post("/forgot-password", response_model=APIResponse)
 async def forgot_password(payload: ForgotPasswordRequestIn, db: AsyncSession = Depends(get_db)):
+    """
+    Forgot Password Request.
+
+    Submits a request to change the user's password. This action requires subsequent administrative approval.
+
+    Request body fields:
+    - **username** (str, optional): The user's username. Provide if email is not used.
+    - **email** (str, optional): The user's email address. Provide if username is not used.
+    - **full_name** (str): The user's full name, used for verification.
+    - **new_password** (str): The desired new password for the account.
+    """
     # Require at least username or email
     if not payload.username and not payload.email:
-        return APIResponse(success=False, message="Username or email is required.", error={"code": "MISSING_CREDENTIALS"})
+        return APIResponse(success=False, message="Username or email is required.", error=ErrorDetail(code="MISSING_CREDENTIALS", details="Username or email is required."))
 
     # Find user by username or email and full_name
     query = select(User)
@@ -141,7 +169,11 @@ async def forgot_password(payload: ForgotPasswordRequestIn, db: AsyncSession = D
     result = await db.execute(query)
     user = result.scalars().first()
     if not user:
-        return APIResponse(success=False, message="User not found with provided information.", error={"code": "USER_NOT_FOUND"})
+        return APIResponse(
+            success=False,
+            message="User not found with provided information.",
+            error=ErrorDetail(code="USER_NOT_FOUND", details="No user found with the provided username/email and full name.")
+        )
 
     # Hash the new password with bcrypt (rounds=12)
     hashed_password = bcrypt.hash(payload.new_password, rounds=12)
