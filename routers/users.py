@@ -316,6 +316,13 @@ async def update_user(
                 "error": ErrorDetail(code="INVALID_STATUS", details=f"Invalid status: {update_data['status']}"),
                 "message": f"Invalid status: {update_data['status']}"
             }
+        # Prevent admin from changing their own status at all
+        if is_admin and current_user.id == id:
+            return {
+                "success": False,
+                "error": ErrorDetail(code="FORBIDDEN", details="Admin cannot change their own status."),
+                "message": "Admin cannot change their own status."
+            }
     
     # Hash password if being updated
     if "password" in update_data:
